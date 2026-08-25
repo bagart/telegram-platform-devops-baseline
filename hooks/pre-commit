@@ -8,8 +8,8 @@ BASELINE_DIR="${BASELINE_DIR:-$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
 export BASELINE_DIR
 FAILS=0
 
-php ""${BASELINE_DIR}/controls/lf-check.php"" --staged || FAILS=1
-php ""${BASELINE_DIR}/controls/secret-scan.php"" --staged || FAILS=1
+php "${BASELINE_DIR}/controls/lf-check.php" --staged || FAILS=1
+php "${BASELINE_DIR}/controls/secret-scan.php" --staged || FAILS=1
 
 if [[ -x "$ROOT/vendor/bin/pint" ]]; then
   STAGED_PHP=$(git diff --cached --name-only --diff-filter=ACM -- '*.php')

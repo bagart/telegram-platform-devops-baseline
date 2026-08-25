@@ -6,4 +6,4 @@ set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 BASELINE_DIR="${BASELINE_DIR:-$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)}"
 export BASELINE_DIR
-exec php ""${BASELINE_DIR}/controls/commit-msg.php"" "$1"
+exec php "${BASELINE_DIR}/controls/commit-msg.php" "$1"
