@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+# Security-only validation gate (02-developer-tooling.md §13).
+#
+# Scanner selection follows the security SDD: approved external scanner when
+# available, otherwise the built-in baseline scanner (Telegram token pattern
+# included). Findings are never silently converted to warnings.
+#
+# SAST runs through tools/baseline/semgrep-scan.sh — the single definition
+# site for targets and rule sets (03-security-and-supply-chain.md §23–§24).
+#
+# Usage:
+#   cmd/dev/security [--format=text|json|github] [--verbose] [--quiet]
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../lib/root.sh"
+source "$BASELINE_DIR/lib/common.sh"
+source "$BASELINE_DIR/lib/output.sh"
+source "$BASELINE_DIR/lib/contract.sh"
+source "$BASELINE_DIR/lib/engine.sh"
+
+usage() {
+  echo "Usage: cmd/dev/security [--format=text|json|github] [--verbose] [--quiet]"
+  contract_usage
+}
+
+contract_parse_args "$@"
+if [[ "$HELP" -eq 1 ]]; then usage; exit "$EX_OK"; fi
+
+require_root_dir
+cd "$REPO_ROOT"
+
+# Profile-aware framework checks (10 §6): Laravel-profile security checks
+# only run when the laravel profile is actually detected.
+PROFILES="$(bash "${BASELINE_DIR}/controls/profiles.sh" --with-implied 2>/dev/null || echo "")"
+has_profile() {
+  [[ " $PROFILES " == *" $1 "* ]]
+}
+
+__audit_composer() {
+  # Advisories fail the control; abandoned status stays report-only (upstream
+  # lifecycle, not a vulnerability). Verdict is derived from JSON so the
+  # control behaves identically on composers without --abandoned (<2.9).
+  local out rc=0
+  out="$(composer audit --no-dev --format=json 2>/dev/null)" || rc=$?
+  if [[ "$rc" -ne 0 && -z "$out" ]]; then
+    echo "composer audit failed to run" >&2
+    return 1
+  fi
+  printf '%s\n' "$out" | php -r '
+$data = json_decode((string) stream_get_contents(STDIN), true) ?: [];
+$advisories = $data["advisories"] ?? [];
+if (isset($advisories["data"]) && is_array($advisories["data"])) {
+    $advisories = $advisories["data"];
+}
+$count = 0;
+foreach ((array) $advisories as $entries) {
+    $count += is_array($entries) ? count($entries) : 0;
+}
+$abandoned = $data["abandoned"] ?? [];
+printf("%d security advisory(ies), %d abandoned package(s)\n", $count, is_array($abandoned) ? count($abandoned) : 0);
+exit($count > 0 ? 1 : 0);
+'
+}
+
+__audit_npm() {
+  npm audit --audit-level=high
+}
+
+__sast_semgrep() {
+  if [[ "$OFFLINE" -eq 1 ]]; then
+    bash "${BASELINE_DIR}/controls/semgrep-scan.sh" --local-only
+  else
+    bash "${BASELINE_DIR}/controls/semgrep-scan.sh"
+  fi
+}
+
+__secret_scan() {
+  if command -v gitleaks >/dev/null 2>&1; then
+    gitleaks detect --no-banner
+  elif command -v git-secrets >/dev/null 2>&1; then
+    git-secrets --scan
+  else
+    php "${BASELINE_DIR}/controls/secret-scan.php" --all
+  fi
+}
+
+__env_not_tracked() {
+  if git ls-files --error-unmatch .env >/dev/null 2>&1; then
+    echo ".env is tracked by Git" >&2
+    echo "remediation: git rm --cached .env" >&2
+    return 1
+  fi
+  return 0
+}
+
+# Composer supply-chain policy (03 §15–§16): approved plugins only, reviewed
+# lifecycle scripts. Baselines live in tools/baseline/.
+__composer_plugin_policy() {
+  php "${BASELINE_DIR}/controls/composer-policy.php" --check=plugins
+}
+
+__composer_lifecycle_scripts() {
+  php "${BASELINE_DIR}/controls/composer-policy.php" --check=scripts
+}
+
+# Security configuration checks (03 §28). Violations block in production
+# environments only; elsewhere they are reported as warnings. The opinionated
+# framework checks are profile-gated (03 §28, 10 §6).
+__config_security() {
+  local args=()
+  has_profile laravel && args+=(--profile=laravel)
+  php "${BASELINE_DIR}/controls/config-security.php" "${args[@]+"${args[@]}"}"
+}
+
+# Architectural security-invariant audit (03 §65): the 12 SEC invariants
+# stay wired into the repo (scanners CI-connected, scoped exceptions,
+# policy-driven controls).
+__sec_invariants() {
+  php "${BASELINE_DIR}/controls/sec-invariants.php"
+}
+
+if [[ "$OFFLINE" -eq 1 ]]; then
+  report_result "composer-audit" skipped "offline mode"
+  report_result "npm-audit" skipped "offline mode"
+else
+  command -v composer >/dev/null 2>&1 && engine_register "composer-audit" "" __audit_composer
+  { command -v npm >/dev/null 2>&1 && [[ -f package-lock.json ]]; } && engine_register "npm-audit" "" __audit_npm
+fi
+
+command -v semgrep >/dev/null 2>&1 && engine_register "sast (semgrep)" "" __sast_semgrep
+
+engine_register "secret-scan" "" __secret_scan
+engine_register "env-not-tracked" "" __env_not_tracked
+engine_register "composer-plugin-policy" "" __composer_plugin_policy
+engine_register "composer-lifecycle-scripts" "" __composer_lifecycle_scripts
+engine_register "config-security" "" __config_security
+engine_register "sec-invariants" "" __sec_invariants
+
+if ! engine_execute; then
+  FAILS=1
+else
+  FAILS=0
+fi
+
+report_finish "$(( FAILS > 0 ? EX_CHECK : EX_OK ))"

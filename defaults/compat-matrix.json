@@ -1,0 +1,67 @@
+{
+    "comment": "Compatibility matrix environment contracts (04-qa-and-testing.md §12, 10-telegram-platform-and-libraries.md §7). Each entry declares the environments a component must be tested in and validated against the current runtime by tools/baseline/compat-check.php. php[] lists supported versions (must satisfy the composer constraint); ext[] must match composer ext-* requires; optionalExt[] enables additional modes when loaded; modes[] documents transport/runtime modes (data-only until CI matrix generation consumes it); botApi declares the Telegram Bot API version the component's API surface targets (must match every other botApi declaration and the component's composer.json extra.bot-api.version when present). The root shell block declares host shell/OS contracts validated against the current runtime.",
+    "shell": {
+        "os": ["Linux"],
+        "bashMin": "4.0"
+    },
+    "entries": [
+        {
+            "name": "app",
+            "path": ".",
+            "php": ["8.5"],
+            "ext": ["curl", "redis", "zlib"],
+            "optionalExt": ["pcntl", "posix", "xhprof"],
+            "modes": ["webhook", "polling", "horizon-queue"],
+            "botApi": "9.5"
+        },
+        {
+            "name": "php-async-kernel-lib",
+            "path": "misc/BAGArt/php-async-kernel-lib",
+            "php": ["8.5"],
+            "ext": [],
+            "optionalExt": ["pcntl", "posix"],
+            "modes": ["fiber-scheduler"]
+        },
+        {
+            "name": "php-async-kernel-client",
+            "path": "misc/BAGArt/php-async-kernel-client",
+            "php": ["8.2", "8.3", "8.4", "8.5"],
+            "ext": [],
+            "optionalExt": [],
+            "modes": ["sync-transport", "async-transport"]
+        },
+        {
+            "name": "php-async-kernel-client-redis",
+            "path": "misc/BAGArt/php-async-kernel-client-redis",
+            "php": ["8.2", "8.3", "8.4", "8.5"],
+            "ext": ["redis"],
+            "optionalExt": [],
+            "modes": ["redis-adapter"]
+        },
+        {
+            "name": "telegram-bot-lib",
+            "path": "misc/BAGArt/telegram-bot-lib",
+            "php": ["8.5"],
+            "ext": [],
+            "optionalExt": ["redis"],
+            "modes": ["sync-transport", "async-transport"],
+            "botApi": "9.5"
+        },
+        {
+            "name": "telegram-bot-basic-lib",
+            "path": "misc/BAGArt/telegram-bot-basic-lib",
+            "php": ["8.5"],
+            "ext": [],
+            "optionalExt": [],
+            "modes": ["webhook"]
+        },
+        {
+            "name": "telegram-bot-management",
+            "path": "misc/BAGArt/telegram-bot-management",
+            "php": ["8.5"],
+            "ext": [],
+            "optionalExt": [],
+            "modes": ["eloquent-models"]
+        }
+    ]
+}

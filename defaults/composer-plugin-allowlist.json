@@ -1,0 +1,7 @@
+{
+    "note": "Approved composer plugins (03-security-and-supply-chain.md §15). An enabled plugin missing here is a policy violation; add entries only after security review.",
+    "plugins": {
+        "pestphp/pest-plugin": "official Pest test framework plugin",
+        "php-http/discovery": "PSR-7/PSR-18 discovery, required by framework dependencies"
+    }
+}

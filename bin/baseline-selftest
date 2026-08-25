@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Engine self-verification: runs the package's own smoke suite.
+set -euo pipefail
+BASELINE_DIR="${BASELINE_DIR:-$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)}"
+exec bash "$BASELINE_DIR/selftest/selfcheck-engine.sh"

@@ -1,0 +1,30 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "bagart/devops-baseline",
+    "description": "Reusable DevOps/security baseline engine: controls, hooks and CLI for BAGArt repositories. Ships executors and defaults; every consumer keeps its own policy JSONs.",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^8.4"
+    },
+    "bin": [
+        "bin/baseline-check",
+        "bin/baseline-fix",
+        "bin/baseline-security",
+        "bin/baseline-drift",
+        "bin/baseline-setup",
+        "bin/baseline-selftest"
+    ],
+    "scripts": {
+        "test": [
+            "bash selftest/selfcheck-engine.sh"
+        ],
+        "lint": [
+            "bash controls/shell-lint.sh lib bin hooks selftest",
+            "php controls/lf-check.php --all"
+        ]
+    },
+    "config": {
+        "sort-packages": true
+    }
+}

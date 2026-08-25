@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Pre-push hook: delegates to the shared pre-push gate.
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+BASELINE_DIR="${BASELINE_DIR:-$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)}"
+export BASELINE_DIR
+exec "$ROOT/cmd/git/prepush"

@@ -1,0 +1,18 @@
+{
+    "$schema": "https://raw.githubusercontent.com/bagart/devops-baseline/main/schemas/commit-policy.v1.json",
+    "version": 1,
+    "prefixes": [
+        "feat",
+        "fix",
+        "refactor",
+        "perf",
+        "test",
+        "docs",
+        "build",
+        "ci",
+        "chore",
+        "security"
+    ],
+    "scopes": "optional",
+    "pattern": "/^(feat|fix|refactor|perf|test|docs|build|ci|chore|security)(\\([^)]+\\))?!?: \\S.+$/"
+}

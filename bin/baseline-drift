@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Baseline drift report (08 §59–§63, 11 §64–§70).
+#
+# Compares the working tree against tools/baseline/MANIFEST.json and reports
+# missing/changed/untracked baseline-owned files plus the installed version.
+#
+# Usage:
+#   cmd/baseline/drift-report [--format=text|json]
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../lib/root.sh"
+source "$BASELINE_DIR/lib/common.sh"
+source "$BASELINE_DIR/lib/output.sh"
+
+require_root_dir
+cd "$REPO_ROOT"
+
+FORMAT_ARG=""
+[[ "${1:-}" == "--format=json" || "${1:-}" == "--json" ]] && FORMAT_ARG="--format=json"
+
+source "$BASELINE_DIR/lib/root.sh" 2>/dev/null || true
+MANIFEST="${REPO_ROOT:-$PWD}/tools/baseline/MANIFEST.json"
+if [[ ! -f "$MANIFEST" ]]; then
+  err "No baseline manifest yet — generate one: php "${BASELINE_DIR}/controls/manifest.php" --generate"
+  exit "$EX_ENV"
+fi
+
+VERSION="$(cat "${BASELINE_DIR}/defaults/VERSION" 2>/dev/null || cat tools/baseline/VERSION)"
+if [[ -n "$FORMAT_ARG" ]]; then
+  php "${BASELINE_DIR}/controls/manifest.php" --verify --format=json
+else
+  say "Baseline version: $VERSION"
+  php "${BASELINE_DIR}/controls/manifest.php" --verify
+fi

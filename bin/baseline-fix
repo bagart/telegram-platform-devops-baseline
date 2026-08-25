@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Run safe automatic fixes (formatting, lint fixes).
+#
+# Never weakens policy, adds security exceptions, or disables checks.
+#
+# Usage:
+#   cmd/dev/fix
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../lib/root.sh"
+source "$BASELINE_DIR/lib/common.sh"
+source "$BASELINE_DIR/lib/output.sh"
+
+require_root_dir
+cd "$REPO_ROOT"
+
+# Line endings (LF everywhere, 02-developer-tooling.md §37)
+say "Normalizing line endings to LF..."
+php "${BASELINE_DIR}/controls/lf-check.php" --all --fix && ok "Line endings OK"
+
+# PHP formatting (Pint)
+if command -v vendor/bin/pint >/dev/null 2>&1; then
+  say "Fixing PHP formatting (Pint)..."
+  vendor/bin/pint
+  ok "PHP formatting fixed"
+else
+  warn "Pint not found — skipping PHP formatting"
+fi
+
+# JS/TS formatting (Prettier via ESLint)
+if command -v npx >/dev/null 2>&1; then
+  if [[ -f eslint.config.js ]]; then
+    say "Fixing JS/TS lint issues..."
+    npx eslint . --fix 2>/dev/null || true
+    ok "JS/TS lint fixes applied"
+  fi
+fi
+
+ok "Fix complete"

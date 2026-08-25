@@ -1,0 +1,20 @@
+{
+    "_comment": "Pinned baseline tools (02 §30 tool isolation). 'pinned' = exact version enforced by cmd/dev/doctor; 'min' = floor only. Bump via PR with doctor green.",
+    "php": {
+        "min": "8.5"
+    },
+    "composer": {
+        "min": "2.0"
+    },
+    "node": {
+        "min": "22",
+        "note": "CI pins exact 22 via setup-node; local floor only"
+    },
+    "semgrep": {
+        "pinned": "1.86.0",
+        "note": "must match SEMGREP_VERSION in .github/workflows/security.yml"
+    },
+    "gh": {
+        "min": "2.0"
+    }
+}

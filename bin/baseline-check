@@ -1,0 +1,180 @@
+#!/usr/bin/env bash
+# Primary local validation gate (02-developer-tooling.md §8–§10).
+#
+# Levels:
+#   (default)  surface-driven fast validation (changed-surface detection)
+#   --quick    seconds: formatting, line endings, secrets on staged files
+#   --full     complete local validation (static analysis, tests, frontend)
+#   --ci       CI-equivalent: --full plus dependency audits
+#
+# Controls are declared with dependencies and executed in parallel waves
+# by cmd/lib/engine.sh (02-developer-tooling.md §15–§16).
+#
+# Usage:
+#   cmd/dev/check [--quick|--full|--ci] [--format=text|json|github] [--verbose] [--quiet]
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../lib/root.sh"
+source "$BASELINE_DIR/lib/common.sh"
+source "$BASELINE_DIR/lib/output.sh"
+source "$BASELINE_DIR/lib/contract.sh"
+source "$BASELINE_DIR/lib/engine.sh"
+
+usage() {
+  echo "Usage: cmd/dev/check [--quick|--full|--ci] [--resume] [--format=text|json|github] [--verbose] [--quiet]"
+  contract_usage
+}
+
+contract_parse_args "$@"
+if [[ "$HELP" -eq 1 ]]; then usage; exit "$EX_OK"; fi
+
+require_root_dir
+cd "$REPO_ROOT"
+
+LEVEL="${LEVEL:-}"
+SURFACES=""
+
+if [[ -z "$LEVEL" ]]; then
+  LEVEL="default"
+  SURFACES="$(php "${BASELINE_DIR}/controls/changed-surface.php" --base=HEAD 2>/dev/null || echo "")"
+fi
+
+has_surface() {
+  [[ " $SURFACES " == *" $1 "* ]]
+}
+
+# Profiles compose (10 §6): telegram implies the relevant parts of
+# async-runtime and laravel, so profile-gated controls fire consistently.
+PROFILES="$(bash "${BASELINE_DIR}/controls/profiles.sh" --with-implied 2>/dev/null || echo "")"
+has_profile() {
+  [[ " $PROFILES " == *" $1 "* ]]
+}
+
+STAGED_FILES="$(git diff --cached --name-only --diff-filter=ACM | head -1)"
+LF_SCOPE="--all"
+SECRET_SCOPE="--all"
+if [[ -n "$STAGED_FILES" ]]; then
+  LF_SCOPE="--staged"
+  SECRET_SCOPE="--staged"
+fi
+
+# Changed-file scopes for quick/default levels (02-developer-tooling.md §9).
+CHANGED_PHP="$(git diff --cached --name-only --diff-filter=ACM -- '*.php'; git diff --name-only --diff-filter=ACM -- '*.php')"
+if [[ -z "$CHANGED_PHP" ]]; then
+  CHANGED_PHP="$(git ls-files --others --exclude-standard -- '*.php' | head -50)"
+fi
+CHANGED_JS="$(git diff --cached --name-only --diff-filter=ACM -- '*.js' '*.ts' '*.tsx' '*.jsx' '*.vue'; git diff --name-only --diff-filter=ACM -- '*.js' '*.ts' '*.tsx' '*.jsx' '*.vue')"
+
+HEAVY=0
+[[ "$LEVEL" == "full" || "$LEVEL" == "ci" ]] && HEAVY=1
+
+PINT_ID="" PHPSTAN_ID="" ESLINT_ID="" PRETTIER_ID=""
+
+engine_register "line-endings" "" php "${BASELINE_DIR}/controls/lf-check.php" "$LF_SCOPE"
+engine_register "secret-scan" "" php "${BASELINE_DIR}/controls/secret-scan.php" "$SECRET_SCOPE"
+
+# --- Dual-mode dependency layout (todo.module-dual-mode.md §5) ---
+if [[ -f cmd/deps/check ]]; then
+  engine_register "deps-check" "" bash cmd/deps/check
+fi
+
+# --- PHP formatting + static analysis ---
+if command -v vendor/bin/pint >/dev/null 2>&1; then
+  if [[ "$HEAVY" -eq 1 ]]; then
+    engine_register "pint" "" vendor/bin/pint --test
+    PINT_ID="pint"
+  elif has_surface php && [[ -n "$CHANGED_PHP" ]]; then
+    # shellcheck disable=SC2086
+    engine_register "pint (changed)" "" vendor/bin/pint --test $CHANGED_PHP
+    PINT_ID="pint (changed)"
+  fi
+fi
+if [[ "$HEAVY" -eq 1 ]] && command -v vendor/bin/phpstan >/dev/null 2>&1; then
+  engine_register "phpstan" "$PINT_ID" vendor/bin/phpstan analyse --no-progress
+  PHPSTAN_ID="phpstan"
+fi
+
+# --- Frontend ---
+if command -v npx >/dev/null 2>&1; then
+  if [[ -f eslint.config.js ]]; then
+    if [[ "$HEAVY" -eq 1 ]]; then
+      engine_register "eslint" "" npx eslint .
+      ESLINT_ID="eslint"
+    elif has_surface frontend && [[ -n "$CHANGED_JS" ]]; then
+      # shellcheck disable=SC2086
+      engine_register "eslint (changed)" "" npx eslint $CHANGED_JS
+      ESLINT_ID="eslint (changed)"
+    fi
+  fi
+  if [[ "$HEAVY" -eq 1 ]] && has_profile frontend; then
+    engine_register "prettier" "$ESLINT_ID" npx prettier --check resources/
+    PRETTIER_ID="prettier"
+    engine_register "typescript" "$PRETTIER_ID" npx tsc --noEmit
+  fi
+fi
+
+# --- Tests ---
+if [[ "$HEAVY" -eq 1 ]] && [[ -f vendor/bin/pest ]]; then
+  engine_register "tests" "$PHPSTAN_ID" php artisan test --compact
+fi
+
+# --- Targeted library suites on the fast path (10 §6) ---
+# When a library surface changed and its owning profile is active, run that
+# suite immediately instead of waiting for --full. At heavy levels the full
+# `tests` control already covers every suite.
+run_lib_suite() {
+  local surface="$1" suite="$2" profile="$3"
+  if [[ "$HEAVY" -eq 0 && "$LEVEL" == "default" ]] \
+    && has_surface "$surface" && has_profile "$profile" && [[ -f vendor/bin/pest ]]; then
+    engine_register "tests ($suite)" "" vendor/bin/pest --testsuite "$suite" --compact
+  fi
+  return 0
+}
+run_lib_suite async AsyncKernelLib async-runtime
+run_lib_suite async ASKClientLib async-runtime
+run_lib_suite async ASKClientRedisLib async-runtime
+run_lib_suite telegram TelegramBotLib telegram
+run_lib_suite telegram TelegramBotBasicLib telegram
+run_lib_suite telegram TelegramBotManagement telegram
+
+# --- Docker ---
+if has_profile docker && { [[ "$HEAVY" -eq 1 ]] || has_surface docker; }; then
+  if command -v docker >/dev/null 2>&1; then
+    engine_register "compose-dev" "" docker compose -f docker-compose.dev.yaml config --quiet
+    if [[ -f docker-compose.prod.yaml ]]; then
+      engine_register "compose-prod" "" docker compose -f docker-compose.prod.yaml config --quiet
+    fi
+  fi
+fi
+
+# --- CI configuration ---
+if has_surface ci || [[ "$HEAVY" -eq 1 ]]; then
+  if command -v actionlint >/dev/null 2>&1; then
+    engine_register "actionlint" "" actionlint
+  fi
+fi
+
+# --- Compatibility matrix (04-qa-and-testing.md §12) ---
+if [[ "$HEAVY" -eq 1 ]]; then
+  engine_register "compat-matrix" "" php "${BASELINE_DIR}/controls/compat-check.php"
+fi
+
+# --- Dependency audit (CI-equivalent mode or dependency changes) ---
+if [[ "$OFFLINE" -eq 1 ]]; then
+  report_result "composer-audit" skipped "offline mode"
+elif [[ "$LEVEL" == "ci" ]] || { [[ "$LEVEL" != "default" ]] && has_surface deps; }; then
+  if command -v composer >/dev/null 2>&1; then
+    engine_register "composer-audit" "" composer audit --no-dev
+  fi
+fi
+
+if ! engine_execute; then
+  FAILS=1
+else
+  FAILS=0
+fi
+
+SUMMARY="$ENGINE_FAILED_COUNT control(s) failed"
+report_finish "$(( FAILS > 0 ? EX_CHECK : EX_OK ))" "$SUMMARY"

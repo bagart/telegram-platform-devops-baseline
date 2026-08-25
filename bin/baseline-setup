@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Consumer onboarding (RFC §4.5): activate hooks + scaffold policy stubs.
+#
+#   vendor/bin/baseline-setup            # hooks only
+#   vendor/bin/baseline-setup --stubs    # also write policy stubs into tools/baseline/
+#
+# Fails loudly when composer install has not produced vendor hooks
+# (no silent skip — a fresh clone must install before its first commit).
+set -euo pipefail
+
+BASELINE_DIR="${BASELINE_DIR:-$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)}"
+export BASELINE_DIR
+
+if [[ ! -d "$BASELINE_DIR/hooks" ]]; then
+  echo "ERROR: engine hooks not found under $BASELINE_DIR/hooks — incomplete install?" >&2
+  exit 4
+fi
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -z "$ROOT" ]]; then
+  echo "ERROR: not inside a git repository — run from the consumer repo" >&2
+  exit 2
+fi
+
+git -C "$ROOT" config core.hooksPath "$BASELINE_DIR/hooks"
+echo "==> core.hooksPath -> $BASELINE_DIR/hooks"
+
+if [[ "${1:-}" == "--stubs" ]]; then
+  mkdir -p "$ROOT/tools/baseline"
+  for stub in secret-allowlist.json test-quarantine.json commit-policy.json; do
+    target="$ROOT/tools/baseline/$stub"
+    if [[ ! -f "$target" && -f "$BASELINE_DIR/defaults/$stub" ]]; then
+      cp "$BASELINE_DIR/defaults/$stub" "$target"
+      echo "==> scaffolded $stub"
+    fi
+  done
+fi
+
+echo "==> done"

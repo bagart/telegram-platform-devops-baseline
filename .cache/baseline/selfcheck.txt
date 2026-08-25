@@ -1,0 +1,8 @@
+cycle-detect: OK
+first-run rc=1 journal=[ok1	passed;bad1	failed;]
+resumed-run journal=[ok1	passed;bad1	failed;]
+resume-journal: OK
+budget-enforce: OK
+maxjobs-clamp: OK
+profiles-compose: OK
+DONE

@@ -1,0 +1,228 @@
+# Custom platform SAST rules (03-security-and-supply-chain.md §24).
+#
+# Versioned with the baseline. Rules must stay precise: an ERROR rule that
+# fires on trusted/internal code is a tuning bug — fix the rule, not the
+# gate (enforcement happens via --error, which fails on ERROR findings only).
+#
+# Run: semgrep scan --config tools/baseline/semgrep-rules.yml <paths>
+
+rules:
+  - id: php-command-injection-user-input
+    message: >
+      User-controlled data reaches a process-execution function. Sanitize with
+      escapeshellarg()/escapeshellcmd() or use array-form proc_open().
+      (03 §24 unsafe command execution)
+    severity: ERROR
+    languages: [php]
+    mode: taint
+    metadata:
+      category: security
+      cwe: "CWE-78: OS Command Injection"
+    pattern-sources:
+      - pattern: $_GET
+      - pattern: $_POST
+      - pattern: $_REQUEST
+      - pattern: $_COOKIE
+      - pattern: (new \Illuminate\Http\Request())
+      - pattern: $REQ->input(...)
+      - pattern: $REQ->query(...)
+      - pattern: $REQ->post(...)
+      - pattern: request(...)
+    pattern-sinks:
+      - pattern: shell_exec($CMD)
+      - pattern: exec($CMD, ...)
+      - pattern: system($CMD, ...)
+      - pattern: passthru($CMD, ...)
+      - pattern: proc_open($CMD, ...)
+    pattern-sanitizers:
+      - pattern: escapeshellarg(...)
+      - pattern: escapeshellcmd(...)
+
+  - id: php-unserialize-without-options
+    message: >
+      unserialize() without an options argument allows object instantiation
+      (POP chain gadget risk). Pass ['allowed_classes' => []] or an explicit
+      allowlist. (03 §24 unsafe deserialization)
+    severity: ERROR
+    languages: [php]
+    metadata:
+      category: security
+      cwe: "CWE-502: Deserialization of Untrusted Data"
+    patterns:
+      - pattern: unserialize($DATA)
+
+  - id: php-unserialize-allows-all-classes
+    message: >
+      unserialize(..., allowed_classes => true) permits arbitrary object
+      instantiation from the payload. Restrict to an explicit class list.
+      (03 §24 unsafe deserialization)
+    severity: WARNING
+    languages: [php]
+    metadata:
+      category: security
+      cwe: "CWE-502: Deserialization of Untrusted Data"
+    patterns:
+      - pattern: unserialize($DATA, ['allowed_classes' => true])
+
+  - id: php-dynamic-sql-raw
+    message: >
+      Raw SQL built from a variable enables SQL injection. Prefer parameter
+      binding (whereRaw('col = ?', [$v])) over string interpolation.
+      (03 §24 dynamic SQL)
+    severity: ERROR
+    languages: [php]
+    metadata:
+      category: security
+      cwe: "CWE-89: SQL Injection"
+    pattern-either:
+      - patterns:
+          - pattern: $Q->whereRaw($SQL)
+          - pattern-not: whereRaw("...")
+      - patterns:
+          - pattern: $Q->orWhereRaw($SQL)
+          - pattern-not: orWhereRaw("...")
+      - patterns:
+          - pattern: $Q->selectRaw($SQL)
+          - pattern-not: selectRaw("...")
+      - patterns:
+          - pattern: $Q->orderByRaw($SQL)
+          - pattern-not: orderByRaw("...")
+      - patterns:
+          - pattern: $Q->havingRaw($SQL)
+          - pattern-not: havingRaw("...")
+      - patterns:
+          - pattern: $Q->groupByRaw($SQL)
+          - pattern-not: groupByRaw("...")
+      - patterns:
+          - pattern: \DB::raw($SQL)
+          - pattern-not: \DB::raw("...")
+          - pattern-not: DB::raw("...")
+      - patterns:
+          - pattern: $Q->statement($SQL)
+          - pattern-not: statement("...")
+
+  - id: php-open-redirect-user-input
+    message: >
+      Redirect target comes from user-controlled data — open-redirect risk.
+      Validate against an allowlist or use route()/intended(). Only external
+      http(s) targets need validation. (03 §24 unvalidated redirects)
+    severity: WARNING
+    languages: [php]
+    mode: taint
+    metadata:
+      category: security
+      cwe: "CWE-601: URL Redirection to Untrusted Site"
+    pattern-sources:
+      - pattern: $_GET
+      - pattern: $REQ->input(...)
+      - pattern: $REQ->query(...)
+    pattern-sinks:
+      - pattern: redirect()->to($URL)
+      - pattern: redirect($URL)
+      - pattern: \Redirect::to($URL)
+      - pattern: $R->redirect($URL)
+
+  - id: php-local-file-inclusion-user-input
+    message: >
+      include/require of a user-controlled path allows local/remote file
+      inclusion. Map user input to fixed file names via an allowlist.
+      (03 §24 unsafe filesystem access)
+    severity: ERROR
+    languages: [php]
+    mode: taint
+    metadata:
+      category: security
+      cwe: "CWE-98: Improper Control of Filename for Include/Require Statement"
+    pattern-sources:
+      - pattern: $_GET
+      - pattern: $_POST
+      - pattern: $_REQUEST
+      - pattern: $_COOKIE
+    pattern-sinks:
+      - pattern: include $FILE
+      - pattern: require $FILE
+      - pattern: include_once $FILE
+      - pattern: require_once $FILE
+
+  - id: php-eval-forbidden
+    message: >
+      eval() is FORBIDDEN (03 §27). Dynamic code execution has no legitimate
+      use in this platform; refactor to explicit dispatch or first-class code.
+    severity: ERROR
+    languages: [php]
+    metadata:
+      category: security
+      policy: FORBIDDEN
+      cwe: "CWE-95: Eval Injection"
+    patterns:
+      - pattern: eval($CODE)
+
+  - id: php-dynamic-include-forbidden
+    message: >
+      include/require of a variable path is FORBIDDEN (03 §27). Use fixed
+      class names, autoloading, or a literal-path allowlist map.
+    severity: ERROR
+    languages: [php]
+    metadata:
+      category: security
+      policy: FORBIDDEN
+      cwe: "CWE-98: Improper Control of Filename for Include/Require Statement"
+    pattern-either:
+      - patterns:
+          - pattern: include $EXPR
+          - metavariable-regex:
+              metavariable: $EXPR
+              regex: ^\$
+      - patterns:
+          - pattern: include_once $EXPR
+          - metavariable-regex:
+              metavariable: $EXPR
+              regex: ^\$
+      - patterns:
+          - pattern: require $EXPR
+          - metavariable-regex:
+              metavariable: $EXPR
+              regex: ^\$
+      - patterns:
+          - pattern: require_once $EXPR
+          - metavariable-regex:
+              metavariable: $EXPR
+              regex: ^\$
+
+  - id: php-process-api-review
+    message: >
+      Process-execution API used (REQUIRES REVIEW per 03 §27). Legitimate for
+      platform internals (Async Kernel, baseline tooling) but each call site
+      must be covered by the appropriate profile and tests. Array-form
+      proc_open() and escapeshellarg() are required for any external input.
+    severity: WARNING
+    languages: [php]
+    metadata:
+      category: security
+      policy: REQUIRES-REVIEW
+      cwe: "CWE-78: OS Command Injection"
+    pattern-either:
+      - pattern: shell_exec($CMD)
+      - pattern: exec($CMD, ...)
+      - pattern: system($CMD, ...)
+      - pattern: passthru($CMD, ...)
+      - pattern: popen($CMD, ...)
+      - pattern: proc_open($CMD, ...)
+    paths:
+      exclude:
+        - tests/**
+        - "**/DevTool/**"
+        - "**/commands/**"
+
+  - id: php-hardcoded-telegram-bot-token
+    message: >
+      Hard-coded Telegram bot token. Tokens belong in the database (tg_bots)
+      or environment, never in source. (AGENTS.md tokens-in-DB rule, 03 §24
+      secret exposure)
+    severity: ERROR
+    languages: [php]
+    metadata:
+      category: security
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+    patterns:
+      - pattern-regex: '\b[0-9]{8,10}:AA[A-Za-z0-9_\-]{33}\b'

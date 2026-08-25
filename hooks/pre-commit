@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Pre-commit hook: fast staged-file validation only.
+# Full validation belongs to pre-push and CI (02-developer-tooling.md §20).
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+BASELINE_DIR="${BASELINE_DIR:-$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)}"
+export BASELINE_DIR
+FAILS=0
+
+php ""${BASELINE_DIR}/controls/lf-check.php"" --staged || FAILS=1
+php ""${BASELINE_DIR}/controls/secret-scan.php"" --staged || FAILS=1
+
+if [[ -x "$ROOT/vendor/bin/pint" ]]; then
+  STAGED_PHP=$(git diff --cached --name-only --diff-filter=ACM -- '*.php')
+  if [[ -n "$STAGED_PHP" ]]; then
+    echo "==> Pint (staged files)"
+    # shellcheck disable=SC2086
+    "$ROOT/vendor/bin/pint" --test $STAGED_PHP || FAILS=1
+  fi
+fi
+
+if [[ "$FAILS" -ne 0 ]]; then
+  echo "ERROR: pre-commit failed — fix the issues above (do not use --no-verify)" >&2
+  exit 1
+fi
+
+exit 0
