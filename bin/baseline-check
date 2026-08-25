@@ -116,8 +116,14 @@ if command -v npx >/dev/null 2>&1; then
 fi
 
 # --- Tests ---
+# Profile-aware runner (Phase 6 pilot finding): Laravel consumers use artisan;
+# pure-PHP libraries fall back to Pest/PHPUnit directly.
 if [[ "$HEAVY" -eq 1 ]] && [[ -f vendor/bin/pest ]]; then
-  engine_register "tests" "$PHPSTAN_ID" php artisan test --compact
+  if has_profile "laravel" && [[ -f artisan ]]; then
+    engine_register "tests" "$PHPSTAN_ID" php artisan test --compact
+  else
+    engine_register "tests" "$PHPSTAN_ID" vendor/bin/pest --compact
+  fi
 fi
 
 # --- Targeted library suites on the fast path (10 §6) ---

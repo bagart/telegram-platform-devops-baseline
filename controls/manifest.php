@@ -23,9 +23,28 @@ const EXIT_OK = 0;
 const EXIT_DRIFT = 1;
 const EXIT_USAGE = 2;
 
-$root = dirname(__DIR__, 2);
-$manifestFile = __DIR__.'/MANIFEST.json';
-$version = trim((string) file_get_contents(__DIR__.'/VERSION'));
+require_once __DIR__.'/baseline-policy.php';
+
+// Operates on the CONSUMER repository: walk up from CWD for composer.json + .git.
+$root = getcwd();
+while ($root !== false && ! (is_file("{$root}/composer.json") && is_dir("{$root}/.git"))) {
+    $parent = dirname($root);
+    if ($parent === $root) {
+        $root = false;
+
+        break;
+    }
+    $root = $parent;
+}
+if ($root === false) {
+    fwrite(STDERR, "Unable to locate consumer repository root (composer.json + .git)\n");
+    exit(EXIT_USAGE);
+}
+$manifestFile = "{$root}/tools/baseline/MANIFEST.json";
+$consumerVersion = "{$root}/tools/baseline/VERSION";
+$version = is_file($consumerVersion)
+    ? trim((string) file_get_contents($consumerVersion))
+    : trim((string) file_get_contents(baseline_policy_path('VERSION')));
 
 $ownedGlobs = [
     'cmd/lib/*',
