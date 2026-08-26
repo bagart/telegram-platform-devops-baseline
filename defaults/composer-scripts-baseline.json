@@ -38,7 +38,7 @@
             "cd misc/BAGArt/telegram-bot-lib && composer test",
             "cd misc/BAGArt/telegram-bot-basic-lib && composer test",
             "cd misc/BAGArt/telegram-bot-antispam-module && composer test",
-            "cd misc/BAGArt/telegram-bot-nettools && composer test",
+            "cd misc/BAGArt/telegram-bot-nettools-module && composer test",
             "cd misc/BAGArt/telegram-bot-management && composer test",
             "cd misc/BAGArt/telegram-bot-tts-module && composer test",
             "cd misc/BAGArt/telegram-bot-stt-module && composer test",

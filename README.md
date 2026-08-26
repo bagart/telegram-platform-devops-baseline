@@ -1,4 +1,4 @@
-# bagart/devops-baseline
+# bagart/telegram-devops-baseline
 
 Reusable DevOps/security baseline **engine** for BAGArt repositories: secret
 scanning, LF enforcement, YAML/shell lint, semgrep, commit-message policy,
@@ -11,7 +11,7 @@ policy and state (allowlists, budgets, quarantine lists) under
 ## Onboarding a new repo
 
 ```bash
-composer require --dev bagart/devops-baseline:@dev
+composer require --dev bagart/telegram-devops-baseline:@dev
 vendor/bin/baseline-setup            # core.hooksPath -> vendor hooks
 vendor/bin/baseline-setup --stubs    # + scaffold policy stubs into tools/baseline/
 vendor/bin/baseline-check --full     # first golden run
