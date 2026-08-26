@@ -183,7 +183,7 @@ function github_policy_check_codeowners(string $path): array
 function github_policy_parse_args(array $argv): array
 {
     $options = [
-        'root' => dirname(__DIR__, 2),
+        'root' => baseline_consumer_root() ?? dirname(__DIR__, 2),
         'format' => 'text',
     ];
 

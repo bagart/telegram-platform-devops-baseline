@@ -194,7 +194,7 @@ if ($mode === null) {
     exit(EXIT_USAGE);
 }
 
-$input = baseline_config_collect(dirname(__DIR__, 2));
+$input = baseline_config_collect(baseline_consumer_root() ?? dirname(__DIR__, 2));
 $forbidden = baseline_config_forbidden($input['overrides']);
 
 if ($mode === 'validate') {

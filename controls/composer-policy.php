@@ -163,7 +163,7 @@ function composer_policy_parse_args(array $argv): array
 {
     $options = [
         'composer' => getcwd().'/composer.json',
-        'allowlist' => __DIR__.'/composer-plugin-allowlist.json',
+        'allowlist' => baseline_policy_path('composer-plugin-allowlist.json'),
         'baseline' => baseline_policy_path('composer-scripts-baseline.json'),
         'check' => 'all',
         'format' => 'text',

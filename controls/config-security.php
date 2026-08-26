@@ -166,7 +166,7 @@ if ($options['config-json'] !== null) {
     $env = (string) ($payload['env'] ?? '');
     $values = is_array($payload['config'] ?? null) ? $payload['config'] : [];
 } else {
-    $root = dirname(__DIR__, 2);
+    $root = baseline_consumer_root() ?? dirname(__DIR__, 2);
     require $root.'/vendor/autoload.php';
     $app = require $root.'/bootstrap/app.php';
     $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();

@@ -85,7 +85,8 @@ if (realpath($argv[0] ?? '') !== __FILE__) {
 $summary = false;
 $format = 'text';
 $limit = 20;
-$events = dirname(__DIR__, 2).'/.cache/baseline/telemetry.jsonl';
+$consumerRoot = baseline_consumer_root() ?? dirname(__DIR__, 2);
+$events = $consumerRoot.'/.cache/baseline/telemetry.jsonl';
 foreach (array_slice($argv, 1) as $arg) {
     if ($arg === '--summary') {
         $summary = true;

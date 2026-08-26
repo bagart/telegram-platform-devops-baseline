@@ -21,7 +21,7 @@ require_once __DIR__.'/baseline-policy.php';
 const EXIT_OK = 0;
 const EXIT_USAGE = 2;
 
-$root = dirname(__DIR__, 2);
+$root = baseline_consumer_root() ?? dirname(__DIR__, 2);
 $historyFile = $root.'/storage/app/baseline/test-history.jsonl';
 
 $mode = $argv[1] ?? '';
