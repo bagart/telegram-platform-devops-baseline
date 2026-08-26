@@ -241,14 +241,28 @@ function sec_invariants_collect(string $root): array
         $policyFiles[$rel] = is_file($root.'/'.$rel);
     }
 
+    // Post-extraction, consumer tools/baseline/<control> may be a delegation
+    // stub while the logic lives in the engine. The invariant must audit the
+    // logic actually executed, so both sources are considered.
+    $sourceOf = static function (string $name) use ($read, $root): ?string {
+        $consumer = $read($root.'/tools/baseline/'.$name);
+        $engine = $read(dirname(__DIR__).'/controls/'.$name);
+
+        return match (true) {
+            $consumer === null => $engine,
+            $engine === null => $consumer,
+            default => $consumer."\n".$engine,
+        };
+    };
+
     return [
         'workflows' => $workflows,
         'toolVersions' => $json($root.'/tools/baseline/tool-versions.json'),
         'allowlist' => $json($root.'/tools/baseline/secret-allowlist.json'),
         'requiredPolicyFiles' => $policyFiles,
-        'profilesScript' => $read($root.'/tools/baseline/profiles.sh'),
-        'configSecuritySource' => $read($root.'/tools/baseline/config-security.php'),
-        'githubPolicySource' => $read($root.'/tools/baseline/github-policy.php'),
+        'profilesScript' => $sourceOf('profiles.sh'),
+        'configSecuritySource' => $sourceOf('config-security.php'),
+        'githubPolicySource' => $sourceOf('github-policy.php'),
     ];
 }
 
@@ -273,7 +287,7 @@ foreach (array_slice($argv, 1) as $arg) {
     exit(EXIT_USAGE);
 }
 
-$results = sec_invariants_evaluate(sec_invariants_collect(dirname(__DIR__, 2)));
+$results = sec_invariants_evaluate(sec_invariants_collect(baseline_consumer_root() ?? dirname(__DIR__, 2)));
 $failures = array_values(array_filter($results, static fn (array $r): bool => $r['status'] === 'fail'));
 
 if ($format === 'json') {
