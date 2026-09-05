@@ -1,6 +1,6 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "bagart/telegram-devops-baseline",
+    "name": "bagart/telegram-platform-devops-baseline",
     "description": "Reusable DevOps/security baseline engine: controls, hooks and CLI for BAGArt repositories. Ships executors and defaults; every consumer keeps its own policy JSONs.",
     "type": "library",
     "license": "MIT",

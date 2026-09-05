@@ -1,5 +1,5 @@
 {
-    "$schema": "https://raw.githubusercontent.com/bagart/telegram-devops-baseline/main/schemas/commit-policy.v1.json",
+    "$schema": "https://raw.githubusercontent.com/bagart/telegram-platform-devops-baseline/main/schemas/commit-policy.v1.json",
     "version": 1,
     "prefixes": [
         "feat",
