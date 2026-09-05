@@ -29,7 +29,7 @@ const SURFACE_RULES = [
     'deps' => ['composer.json', 'composer.lock', 'package.json', 'pnpm-lock.yaml', 'package-lock.json'],
     'database' => ['database/*'],
     'async' => ['misc/BAGArt/php-async-kernel-lib/*', 'misc/BAGArt/php-async-kernel-client*/*'],
-    'telegram' => ['misc/BAGArt/telegram-bot-lib/*', 'misc/BAGArt/telegram-bot-basic-lib/*', 'misc/BAGArt/telegram-bot-management/*'],
+    'telegram' => ['misc/BAGArt/telegram-bot-lib/*', 'misc/BAGArt/telegram-bot-lib-basic/*', 'misc/BAGArt/telegram-platform-management/*'],
     'docs' => ['docs/*', '*.md'],
 ];
 

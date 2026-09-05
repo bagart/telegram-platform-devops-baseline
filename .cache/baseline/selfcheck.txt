@@ -4,5 +4,5 @@ resumed-run journal=[ok1	passed;bad1	failed;]
 resume-journal: OK
 budget-enforce: OK
 maxjobs-clamp: OK
-profiles-compose: OK
+profiles-compose: FAIL (detected=[php] implied=[php] json={"profiles":["php"]})
 DONE

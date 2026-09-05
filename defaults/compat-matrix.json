@@ -48,16 +48,16 @@
             "botApi": "9.5"
         },
         {
-            "name": "telegram-bot-basic-lib",
-            "path": "misc/BAGArt/telegram-bot-basic-lib",
+            "name": "telegram-bot-lib-basic",
+            "path": "misc/BAGArt/telegram-bot-lib-basic",
             "php": ["8.5"],
             "ext": [],
             "optionalExt": [],
             "modes": ["webhook"]
         },
         {
-            "name": "telegram-bot-management",
-            "path": "misc/BAGArt/telegram-bot-management",
+            "name": "telegram-platform-management",
+            "path": "misc/BAGArt/telegram-platform-management",
             "php": ["8.5"],
             "ext": [],
             "optionalExt": [],
