@@ -17,6 +17,9 @@
 
 set -euo pipefail
 
+# Resolve the sibling control before the cd below, so the scan works from any cwd.
+CONTROLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 REPO="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 if [[ -z "$REPO" ]]; then
   REPO="$PWD"
@@ -50,4 +53,4 @@ for arg in "$@"; do
   esac
 done
 
-exec php controls/secret-scan.php "${ARGS[@]}"
+exec php "$CONTROLS_DIR/secret-scan.php" "${ARGS[@]}"

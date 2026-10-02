@@ -212,7 +212,7 @@ rules:
       exclude:
         - tests/**
         - "**/DevTool/**"
-        - "**/commands/**"
+        - "**/cmd/**"
 
   - id: php-hardcoded-telegram-bot-token
     message: >

@@ -21,10 +21,33 @@ require_once __DIR__.'/baseline-policy.php';
  * Usage:
  *   php controls/github-policy.php [--root=path] [--format=text|json]
  *
- * Exit codes: 0 clean, 1 violation, 2 usage error.
+ * Exit codes: 0 clean, 1 violation, 2 usage error, 3 autoload unavailable.
  */
 
-require __DIR__.'/../../vendor/autoload.php';
+$consumerRoot = baseline_consumer_root();
+$autoloadCandidates = [
+    getcwd().'/vendor/autoload.php',
+    $consumerRoot === null ? null : $consumerRoot.'/vendor/autoload.php',
+    // Legacy layout: engine lives inside the consumer repo tree.
+    dirname(__DIR__).'/../vendor/autoload.php',
+];
+$loaded = false;
+foreach ($autoloadCandidates as $candidate) {
+    if (is_string($candidate) && is_file($candidate)) {
+        require $candidate;
+        $loaded = true;
+
+        break;
+    }
+}
+if (! $loaded) {
+    fwrite(STDERR, "vendor/autoload.php not found — run 'composer install' first\n");
+    exit(3);
+}
+if (! class_exists(Symfony\Component\Yaml\Yaml::class)) {
+    fwrite(STDERR, "symfony/yaml is required for the github-policy control\n");
+    exit(3);
+}
 
 const EXIT_OK = 0;
 const EXIT_CHECK = 1;
