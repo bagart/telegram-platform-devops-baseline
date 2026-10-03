@@ -67,10 +67,13 @@ chmod +x .cache/baseline/budget-case.sh
 BASELINE_BUDGET_OKSLOW=0 BASELINE_CONTROL_BUDGET=0 bash .cache/baseline/budget-case.sh
 printf 'budget-enforce: %s\n' "$([[ $? -eq 1 ]] && echo OK || echo FAIL)" >>"$OUT"
 
-# 4) Max jobs clamp.
+# 4) Max jobs clamp: force an over-cap value so the assertion does not
+#    depend on the host CPU count (CI runners have fewer cores than 16).
 bash -c '
 cd "'"$PWD"'" && export REPO_ROOT="$PWD"
-source lib/common.sh; source lib/output.sh; source lib/contract.sh; source lib/engine.sh
+source lib/common.sh; source lib/output.sh; source lib/contract.sh
+export BASELINE_MAX_JOBS=999
+source lib/engine.sh
 [[ "$ENGINE_MAX_JOBS" == "16" ]] && echo maxjobs-clamp: OK || echo maxjobs-clamp: FAIL
 ' >>"$OUT" 2>&1
 
