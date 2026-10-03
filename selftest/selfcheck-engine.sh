@@ -3,6 +3,11 @@
 set -uo pipefail
 BASELINE_DIR="${BASELINE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 export BASELINE_DIR
+# Profile evidence (composer deps + .baseline-profiles.json) lives in the
+# CONSUMER repo, which is the invocation cwd — capture it before cd'ing
+# into the package (the package itself only requires php and can never
+# demonstrate telegram/async-runtime implication).
+CONSUMER_ROOT="$PWD"
 cd "$BASELINE_DIR"
 OUT=".cache/baseline/selfcheck.txt"
 mkdir -p .cache/baseline
@@ -71,9 +76,11 @@ source lib/common.sh; source lib/output.sh; source lib/contract.sh; source lib/e
 
 # 5) Profile composition (10 §6): --with-implied must keep detection stable,
 #    emit valid JSON and imply async-runtime + laravel from telegram.
-profiles="$(bash controls/profiles.sh 2>/dev/null || true)"
-implied="$(bash controls/profiles.sh --with-implied 2>/dev/null || true)"
-json="$(bash controls/profiles.sh --with-implied --format=json 2>/dev/null || true)"
+#    Run detection from the consumer root: profiles.sh resolves its repo via
+#    git/PWD, and profile evidence is a consumer-repo concern.
+profiles="$(cd "$CONSUMER_ROOT" && bash "$BASELINE_DIR/controls/profiles.sh" 2>/dev/null || true)"
+implied="$(cd "$CONSUMER_ROOT" && bash "$BASELINE_DIR/controls/profiles.sh" --with-implied 2>/dev/null || true)"
+json="$(cd "$CONSUMER_ROOT" && bash "$BASELINE_DIR/controls/profiles.sh" --with-implied --format=json 2>/dev/null || true)"
 json_ok=0
 php -r '$d=json_decode($argv[1],true); exit(isset($d["profiles"])&&is_array($d["profiles"])?0:1);' "$json" && json_ok=1
 if grep -qw telegram <<<"$implied" \
